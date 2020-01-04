@@ -37,7 +37,7 @@ public class JFKAlarms {
                 })
                 .filter(new FilterFunction<Tuple5<Integer, String, String,Integer,Integer>>() {
                     public boolean filter(Tuple5<Integer, String, String,Integer,Integer> in) throws Exception {
-                        return (in.f4==1 && in.f3>=2);
+                        return (in.f4==2 && in.f3>=2);
                     }
                 });
         SingleOutputStreamOperator<Tuple4<Integer, String, String,Integer>> finalStream = mapStream
