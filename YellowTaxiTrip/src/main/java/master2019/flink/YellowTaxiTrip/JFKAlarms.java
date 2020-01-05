@@ -13,10 +13,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
-/**
- * In this class the JFK airport trips program has to be implemented.
- */
 public class JFKAlarms {
+    
     public static void main(String[] args) throws Exception {
         final ParameterTool params = ParameterTool.fromArgs(args);
         // set up the execution environment
@@ -52,5 +50,7 @@ public class JFKAlarms {
         }
         env.execute("Map");
 
-    }
+
+    }   
+    
 }
