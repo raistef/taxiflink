@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.Locale;
-import org.apache.*;
 
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -20,6 +19,7 @@ import org.apache.flink.api.java.tuple.Tuple4;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
@@ -33,6 +33,7 @@ public class LargeTrips {
         final ParameterTool params = ParameterTool.fromArgs(args);
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime); //event time based on a timestamp
         // get input data
         DataStream<String> text;
         // read the text file from given input path
@@ -75,6 +76,7 @@ public class LargeTrips {
                         }
                     }).keyBy(0);
         SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(TumblingEventTimeWindows.of(Time.hours(3)))
+                    .reduce(new ReduceFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
                         public Tuple5<Integer, String, Integer, String, String> reduce(Tuple5<Integer, String, Integer, String, String> v1, Tuple5<Integer, String, Integer, String, String> v2) throws Exception {
                          DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
@@ -89,16 +91,15 @@ public class LargeTrips {
                         else
                             return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2, v1.f3, endTime);
                     }
-                })
+                });
                 
-            });
-            SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> finalStream = text
+            SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> finalStream = aggregatedStream
                 .filter(new FilterFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     public boolean filter(Tuple5<Integer, String, Integer, String, String> in) throws Exception {
                         return (in.f2 >= 5);
                     }
                 });
-        
+                
         // emit result
         if (params.has("output")) {
             mapStream.writeAsCsv(params.get("output"),FileSystem.WriteMode.OVERWRITE);
