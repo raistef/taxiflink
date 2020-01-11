@@ -14,6 +14,7 @@ import org.apache.flink.streaming.api.datastream.KeyedStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
 import org.apache.flink.streaming.api.functions.windowing.AllWindowFunction;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
@@ -35,6 +36,7 @@ public class JFKAlarms {
         final ParameterTool params = ParameterTool.fromArgs(args);
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setParallelism(1);
         // get input data
         DataStream<String> text;
         // read the text file from given input path
@@ -54,34 +56,40 @@ public class JFKAlarms {
                         return (in.f4 == 2 && in.f3 >= 2);
                     }
                 });
-        KeyedStream<Tuple5<Integer, String, String, Integer, Integer>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, String, Integer, Integer>>() {
-                    @Override
-                    public long extractAscendingTimestamp(Tuple5<Integer, String, String, Integer, Integer> element) {
+        KeyedStream<Tuple5<Integer, String, String, Integer, Integer>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<Tuple5<Integer, String, String, Integer, Integer>>(Time.minutes(59)) {
+            @Override
+            public long extractTimestamp(Tuple5<Integer, String, String, Integer, Integer> element) {
                         DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                         LocalDateTime time = LocalDateTime.parse(element.f1, sdf);
                         return time.toEpochSecond(ZoneOffset.UTC)*1000;
-                        }
-                    }).keyBy(0);
+            }
+        }).keyBy(0);
         SingleOutputStreamOperator<Tuple4<Integer, String, String,Integer>> finalStream =  keyedStream.window(TumblingEventTimeWindows.of(Time.hours(1)))
                     .reduce(new ReduceFunction<Tuple5<Integer, String, String, Integer, Integer>>() {
                      @Override
                         public Tuple5<Integer, String, String, Integer, Integer> reduce(Tuple5<Integer, String, String, Integer, Integer> v1, Tuple5<Integer, String, String, Integer, Integer> v2) throws Exception {
-                         DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
-                         LocalDateTime time1 = LocalDateTime.parse(v1.f2, sdf);
-                         LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
-                        String endTime= time1.isBefore(time2) ? v2.f2 : v1.f2;
-
-                         if(v2!=null)
-                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,endTime,v1.f3+v2.f3,v1.f4);
+                         if(v2!=null) {
+                             DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
+                             LocalDateTime time1 = LocalDateTime.parse(v1.f2, sdf);
+                             LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
+                             String endTime = time1.isBefore(time2) ? v2.f2 : v1.f2;
+                             System.out.println(v1.f1);
+                             return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0, v1.f1, endTime, v1.f3 + v2.f3, v1.f4);
+                         }
                         else
-                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,endTime,v1.f3,v1.f4);
-                    }
+                             System.out.println(v1.f1);
+
+                         return v1;
+
+
+                     }
                 })
                 .map(new MapFunction<Tuple5<Integer, String, String, Integer, Integer>, Tuple4<Integer, String, String, Integer>>() {
                     public Tuple4<Integer, String, String, Integer> map(Tuple5<Integer, String, String, Integer, Integer> in) throws Exception {
                     return new Tuple4<Integer, String, String, Integer>(in.f0,in.f1,in.f2,in.f3) ;
                 }
             });
+
         // emit result
         if (params.has("output")) {
             finalStream.writeAsCsv(params.get("output"),FileSystem.WriteMode.OVERWRITE);
