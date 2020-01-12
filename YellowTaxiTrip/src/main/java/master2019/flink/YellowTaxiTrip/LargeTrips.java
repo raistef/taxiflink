@@ -45,18 +45,18 @@ public class LargeTrips {
 
         //VendorID f0, day f1, numberOfTrips f2, tpep_pickup_datetime f3, tpep_dropoff_datetime f4
         //Integer, String, Integer, String, String
-        SingleOutputStreamOperator<Tuple6<Integer, String, Integer, String, String,Integer>> mapStream6 = text
-                .map( new MapFunction<String, Tuple6<Integer, String, Integer, String, String,Integer>>() {
-                    public Tuple6<Integer, String, Integer, String, String,Integer>map(String in) throws Exception{
+        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> mapStream = text
+                .map( new MapFunction<String, Tuple5<Integer, String, Integer, String, String>>() {
+                    public Tuple5<Integer, String, Integer, String, String>map(String in) throws Exception{
                         String[] fieldArray = in.split(",");
                         int numberOfTrips=1;
-                        Tuple6<Integer, String, Integer, String, String,Integer> out= new Tuple6(Integer.parseInt(fieldArray[0]), fieldArray[1], numberOfTrips, fieldArray[1], fieldArray[2],Integer.parseInt(fieldArray[3]));
+                        Tuple5<Integer, String, Integer, String, String> out= new Tuple5(Integer.parseInt(fieldArray[0]), fieldArray[1], numberOfTrips, fieldArray[1], fieldArray[2]);
                         return out;
                     }
                 })
-                .filter(new FilterFunction<Tuple6<Integer, String, Integer, String, String,Integer>>() {
+                .filter(new FilterFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
-                    public boolean filter(Tuple6<Integer, String, Integer, String, String, Integer> in) throws Exception {
+                    public boolean filter(Tuple5<Integer, String, Integer, String, String> in) throws Exception {
                         DateTimeFormatter sdf =  DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                         LocalDateTime firstDate = LocalDateTime.parse(in.f3,sdf);
                         LocalDateTime secondDate = LocalDateTime.parse(in.f4,sdf);
@@ -66,13 +66,7 @@ public class LargeTrips {
                     }
 
                 });
-        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> mapStream = mapStream6.map(new MapFunction<Tuple6<Integer, String, Integer, String, String, Integer>, Tuple5<Integer, String, Integer, String, String>>() {
-            @Override
-            public Tuple5<Integer, String, Integer, String, String> map(Tuple6<Integer, String, Integer, String, String, Integer> in) throws Exception {
-                return new Tuple5<Integer, String, Integer, String, String>(in.f0,in.f1,in.f2,in.f3,in.f4);
-            }
-        });
-
+       
         KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>() {
             @Override
             public long extractAscendingTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
