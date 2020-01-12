@@ -45,6 +45,8 @@ public class LargeTrips {
 
         //VendorID f0, day f1, numberOfTrips f2, tpep_pickup_datetime f3, tpep_dropoff_datetime f4
         //Integer, String, Integer, String, String
+        
+        //extract the necessary fields from the csv file
         SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> mapStream = text
                 .map( new MapFunction<String, Tuple5<Integer, String, Integer, String, String>>() {
                     public Tuple5<Integer, String, Integer, String, String>map(String in) throws Exception{
@@ -54,6 +56,7 @@ public class LargeTrips {
                         return out;
                     }
                 })
+                //filter based on the duration of the trip
                 .filter(new FilterFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
                     public boolean filter(Tuple5<Integer, String, Integer, String, String> in) throws Exception {
@@ -66,7 +69,7 @@ public class LargeTrips {
                     }
 
                 });
-       
+        //assign timestamps and watermarks
         KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>() {
             @Override
             public long extractAscendingTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
@@ -75,6 +78,7 @@ public class LargeTrips {
                 return time.toEpochSecond(ZoneOffset.UTC)*1000;
             }
         }).keyBy(0);
+        //calculate the number of trips in a window
         SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(TumblingEventTimeWindows.of(Time.hours(3)))
                 .reduce(new ReduceFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
@@ -83,15 +87,15 @@ public class LargeTrips {
                         LocalDateTime time1 = LocalDateTime.parse(v1.f4, sdf);
                         LocalDate onlyDate = LocalDateTime.parse(v1.f3, sdf).toLocalDate();
                         if (v2 != null) {
+                            //check if the dropoff time is the last one
                             LocalDateTime time2 = LocalDateTime.parse(v2.f4, sdf);
                             String endTime = time1.isBefore(time2) ? v2.f4 : v1.f4;
-                            DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
                             return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2 + v2.f2, v1.f3, endTime);
                         } else
                             return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2, v1.f3, v1.f4);
                     }
                 });
-
+        //filter based on the numebr of trips
         SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> finalStream = aggregatedStream
                 .filter(new FilterFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     public boolean filter(Tuple5<Integer, String, Integer, String, String> in) throws Exception {
