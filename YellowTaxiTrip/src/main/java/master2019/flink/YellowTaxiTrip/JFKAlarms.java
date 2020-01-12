@@ -43,6 +43,7 @@ public class JFKAlarms {
 
         
         //vendorID, tpep_pickup_datetime, tpep_dropoff_datetime, passenger_count
+        //extract the necessary fields form the input file and filter based on the destination (RateCodeId) and number of passengers
         SingleOutputStreamOperator<Tuple5<Integer, String, String, Integer, Integer>> mapStream = text
                 .map(new MapFunction<String, Tuple5<Integer, String, String, Integer, Integer>>() {
                     public Tuple5<Integer, String, String, Integer, Integer> map(String in) throws Exception {
@@ -56,6 +57,7 @@ public class JFKAlarms {
                         return (in.f4 == 2 && in.f3 >= 2);
                     }
                 });
+        //assign timestamps and watermarks
         KeyedStream<Tuple5<Integer, String, String, Integer, Integer>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, String, Integer, Integer>>() {
                     @Override
                     public long extractAscendingTimestamp(Tuple5<Integer, String, String, Integer, Integer> element) {
@@ -64,6 +66,7 @@ public class JFKAlarms {
                         return time.toEpochSecond(ZoneOffset.UTC)*1000;
                         }
                     }).keyBy(0);
+        //calculate the total number of passengers using reduce
         SingleOutputStreamOperator<Tuple4<Integer, String, String,Integer>> finalStream =  keyedStream.window(TumblingEventTimeWindows.of(Time.hours(1)))
                     .reduce(new ReduceFunction<Tuple5<Integer, String, String, Integer, Integer>>() {
                      @Override
@@ -74,8 +77,7 @@ public class JFKAlarms {
 
                          if(v2!=null) {
                                                  
-                         //The lines below are necessary we think to get proper output, given that the input is unordered
-                         //but the output is different from what you have presented
+                         //The lines below check if the dropoff time is the last time, but the output is different from what you have presented
                          //so we decided to comment it out
                          //LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
                          //String endTime= time1.isBefore(time2) ? v2.f2 : v1.f2;
@@ -85,6 +87,7 @@ public class JFKAlarms {
                             return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,v1.f2,v1.f3,v1.f4);
                     }
                 })
+                //return only the necessary fields
                 .map(new MapFunction<Tuple5<Integer, String, String, Integer, Integer>, Tuple4<Integer, String, String, Integer>>() {
                     public Tuple4<Integer, String, String, Integer> map(Tuple5<Integer, String, String, Integer, Integer> in) throws Exception {
                     return new Tuple4<Integer, String, String, Integer>(in.f0,in.f1,in.f2,in.f3) ;
