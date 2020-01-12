@@ -73,9 +73,9 @@ public class LargeTrips {
             }
         });
 
-        KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>(Time.minutes(59)) {
+        KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>() {
             @Override
-            public long extractTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
+            public long extractAscendingTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
                 DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                 LocalDateTime time = LocalDateTime.parse(element.f3, sdf);
                 return time.toEpochSecond(ZoneOffset.UTC)*1000;
