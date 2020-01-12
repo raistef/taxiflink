@@ -35,6 +35,7 @@ public class JFKAlarms {
         final ParameterTool params = ParameterTool.fromArgs(args);
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        //env.setParallelism(1); 1 by default
         // get input data
         DataStream<String> text;
         // read the text file from given input path
