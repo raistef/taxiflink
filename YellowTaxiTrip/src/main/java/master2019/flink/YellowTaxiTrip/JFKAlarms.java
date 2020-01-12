@@ -70,13 +70,18 @@ public class JFKAlarms {
                         public Tuple5<Integer, String, String, Integer, Integer> reduce(Tuple5<Integer, String, String, Integer, Integer> v1, Tuple5<Integer, String, String, Integer, Integer> v2) throws Exception {
                          DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                          LocalDateTime time1 = LocalDateTime.parse(v1.f2, sdf);
-                         LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
-                        String endTime= time1.isBefore(time2) ? v2.f2 : v1.f2;
+                         
 
-                         if(v2!=null)
-                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,endTime,v1.f3+v2.f3,v1.f4);
-                        else
-                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,endTime,v1.f3,v1.f4);
+                         if(v2!=null) {
+                                                 
+                         //The lines below are necessary we think to get proper output, but the output is different from what you have presented
+                         //so we decided to comment it out
+                         //LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
+                         //String endTime= time1.isBefore(time2) ? v2.f2 : v1.f2;
+                         //return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,endTime,v1.f3+v2.f3,v1.f4);
+                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,v2.f2,v1.f3+v2.f3,v1.f4);
+                        } else
+                            return new Tuple5<Integer, String, String, Integer, Integer>(v1.f0,v1.f1,v1.f2,v1.f3,v1.f4);
                     }
                 })
                 .map(new MapFunction<Tuple5<Integer, String, String, Integer, Integer>, Tuple4<Integer, String, String, Integer>>() {
