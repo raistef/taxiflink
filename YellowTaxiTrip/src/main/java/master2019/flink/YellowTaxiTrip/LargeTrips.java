@@ -84,7 +84,7 @@ public class LargeTrips {
         }).keyBy(0);
         
         
-        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(SlidingEventTimeWindows.of(Time.hours(3), Time.minutes(1)))
+        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(SlidingEventTimeWindows.of(Time.hours(3), Time.minutes(19)))
                 .reduce(new ReduceFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
                     public Tuple5<Integer, String, Integer, String, String> reduce(Tuple5<Integer, String, Integer, String, String> v1, Tuple5<Integer, String, Integer, String, String> v2) throws Exception {
