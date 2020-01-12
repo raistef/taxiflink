@@ -24,7 +24,6 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
-import org.apache.flink.streaming.api.windowing.assigners.SlidingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 
@@ -74,23 +73,21 @@ public class LargeTrips {
             }
         });
 
-        KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>() {
+        KeyedStream<Tuple5<Integer, String, Integer, String, String>,Tuple> keyedStream= mapStream.assignTimestampsAndWatermarks(new BoundedOutOfOrdernessTimestampExtractor<Tuple5<Integer, String, Integer, String, String>>(Time.minutes(59)) {
             @Override
-            public long  extractAscendingTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
+            public long extractTimestamp(Tuple5<Integer, String, Integer, String, String> element) {
                 DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                 LocalDateTime time = LocalDateTime.parse(element.f3, sdf);
                 return time.toEpochSecond(ZoneOffset.UTC)*1000;
             }
         }).keyBy(0);
-        
-        
-        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(SlidingEventTimeWindows.of(Time.hours(3), Time.minutes(19)))
+        SingleOutputStreamOperator<Tuple5<Integer, String, Integer, String, String>> aggregatedStream =  keyedStream.window(TumblingEventTimeWindows.of(Time.hours(3)))
                 .reduce(new ReduceFunction<Tuple5<Integer, String, Integer, String, String>>() {
                     @Override
                     public Tuple5<Integer, String, Integer, String, String> reduce(Tuple5<Integer, String, Integer, String, String> v1, Tuple5<Integer, String, Integer, String, String> v2) throws Exception {
                         DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
-                        LocalDateTime time1 = LocalDateTime.parse(v1.f3, sdf);
-                        LocalDate onlyDate = time1.toLocalDate();
+                        LocalDateTime time1 = LocalDateTime.parse(v1.f4, sdf);
+                        LocalDate onlyDate = LocalDateTime.parse(v1.f3, sdf).toLocalDate();
                         if (v2 != null) {
                             LocalDateTime time2 = LocalDateTime.parse(v2.f4, sdf);
                             String endTime = time1.isBefore(time2) ? v2.f4 : v1.f4;
@@ -98,7 +95,6 @@ public class LargeTrips {
                             return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2 + v2.f2, v1.f3, endTime);
                         } else
                             return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2, v1.f3, v1.f4);
-                        
                     }
                 });
 
@@ -111,7 +107,6 @@ public class LargeTrips {
         // emit result
         if (params.has("output")) {
             finalStream.writeAsCsv(params.get("output"),FileSystem.WriteMode.OVERWRITE);
-            
         }
         env.execute();
 
