@@ -32,8 +32,6 @@ public class LargeTrips {
         final ParameterTool params = ParameterTool.fromArgs(args);
         // set up the execution environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(1);
-        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime); //event time based on a timestamp
         // get input data
         DataStream<String> text;
         // read the text file from given input path
@@ -89,15 +87,14 @@ public class LargeTrips {
                     public Tuple5<Integer, String, Integer, String, String> reduce(Tuple5<Integer, String, Integer, String, String> v1, Tuple5<Integer, String, Integer, String, String> v2) throws Exception {
                         DateTimeFormatter sdf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH);
                         LocalDateTime time1 = LocalDateTime.parse(v1.f4, sdf);
-                        LocalDateTime time2 = LocalDateTime.parse(v2.f4, sdf);
-                        String endTime= time1.isBefore(time2) ? v2.f4 : v1.f4;
-                        DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
                         LocalDate onlyDate = time1.toLocalDate();
-
-                        if(v2!=null)
-                            return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2+v2.f2, v1.f3, endTime);
-                        else
-                            return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2, v1.f3, endTime);
+                        if (v2 != null) {
+                            LocalDateTime time2 = LocalDateTime.parse(v2.f4, sdf);
+                            String endTime = time1.isBefore(time2) ? v2.f4 : v1.f4;
+                            DateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+                            return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2 + v2.f2, v1.f3, endTime);
+                        } else
+                            return new Tuple5<Integer, String, Integer, String, String>(v1.f0, onlyDate.toString(), v1.f2, v1.f3, v1.f4);
                     }
                 });
 
@@ -107,7 +104,6 @@ public class LargeTrips {
                         return (in.f2 >= 5);
                     }
                 });
-
         // emit result
         if (params.has("output")) {
             finalStream.writeAsCsv(params.get("output"),FileSystem.WriteMode.OVERWRITE);
