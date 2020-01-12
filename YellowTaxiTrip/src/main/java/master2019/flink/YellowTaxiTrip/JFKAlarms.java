@@ -74,7 +74,8 @@ public class JFKAlarms {
 
                          if(v2!=null) {
                                                  
-                         //The lines below are necessary we think to get proper output, but the output is different from what you have presented
+                         //The lines below are necessary we think to get proper output, given that the input is unordered
+                         //but the output is different from what you have presented
                          //so we decided to comment it out
                          //LocalDateTime time2 = LocalDateTime.parse(v2.f2, sdf);
                          //String endTime= time1.isBefore(time2) ? v2.f2 : v1.f2;
